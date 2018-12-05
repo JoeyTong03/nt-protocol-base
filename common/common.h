@@ -1,5 +1,4 @@
 /*common.h*/
-/*Just for test ,,,,,s,smd*/
 #include <time.h>
 #include <fcntl.h>
 #include <stdio.h>
