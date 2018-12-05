@@ -1,4 +1,5 @@
 /*common.h*/
+/*Just for test ,,,,,s,smd*/
 #include <time.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -14,7 +15,7 @@
 #include <sys/file.h>//flock,lockf
 #include <errno.h>
 
-#define MAX_PKT 1024
+#define MAX_PKT 1024 //for test ...,dofsjldfh
 #define FALSE 0
 #define ERROR -1
 #define OK 1
