@@ -14,6 +14,7 @@
 #include <sys/file.h>//flock,lockf
 #include <errno.h>
 
+//fortest
 #define MAX_PKT 1024 //for test ...,dofsjldfh
 #define FALSE 0
 #define ERROR -1
