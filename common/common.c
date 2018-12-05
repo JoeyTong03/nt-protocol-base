@@ -131,18 +131,56 @@ Status to_network_layer(Packet* buffer)
 
 /**********************
 * 函数名称：wait_for_event
-* 功    能：等待事件的发生，并用event记录发生的事件类型
+* 功    能：等待信号变化
 * 参    数：event--发生的事件
 * 返    回：
 * 说    明：
 	(1)供datalink进程使用
-	(2)处理各种信号，并将信号对应的事件通过event传递
+	(2)循环等待信号发生变化，即连续遇到两个相同的信号时会忽略第二个信号！！BE CARE!
 ***********************/
 void wait_for_event(event_type* event)
 {
-	
+	while(sig_num==0)
+		sleep(1);
+	if(	sig_num==SIG_CHSUM_ERR | sig_num==SIG_FRAME_ARRIVAL |
+		sig_num==SIG_NETWORK_LAYER_READY |sig_num==SIG_ENABLE_NETWORK_LAYER |
+		sig_num==SIG_DISABEL_NETWORK_LAYER | sig_num==SIGALRM
+		)
+		*event=sig_num;
+	else	
+		*event=0;
+	sig_num=0;//卸磨杀驴
 }
 
+
+/**********************
+* 函数名称：sig_func
+* 功    能：信号处理函数，根据收到的信号为全局变量sig_num赋值
+* 参    数：sig--收到的信号
+* 返    回：
+* 说    明：供sig_catch函数使用
+***********************/
+void sig_func(int sig)  
+{  
+	sig_num=sig;
+}  
+
+/**********************
+* 函数名称：sig_catch
+* 功    能：捕捉定义的信号，处理函数为sig_func
+* 参    数：
+* 返    回：
+* 说    明：进程开始时需要调用该函数，通过全局变量sig_num的值“传递”信号
+***********************/
+void sig_catch()
+{
+	(void) signal(SIG_CHSUM_ERR,sig_func); 
+	(void) signal(SIG_FRAME_ARRIVAL,sig_func);
+	(void) signal(SIG_NETWORK_LAYER_READY,sig_func);
+	(void) signal(SIG_ENABLE_NETWORK_LAYER,sig_func);
+	(void) signal(SIG_DISABEL_NETWORK_LAYER,sig_func);
+	(void) signal(SIGALRM,sig_func);
+}
 /**********************
 * 函数名称：start_timer
 * 功    能：发送方发送数据后，启动帧k的计时器，如果超时就timeout
@@ -201,7 +239,14 @@ void stop_ack_timer()
 ***********************/
 void enable_network_layer()
 {
-	
+	//network_layer_status=1;
+	//获取network层进程的pid号
+    int pid;
+    FILE *fp = popen("ps -e | grep \'_network' | awk \'{print $1}\'","r");
+    char buffer[10] = {0};
+    fgets(buffer, 10, fp);
+    pid=atoi(buffer);
+	kill(pid,SIG_ENABLE_NETWORK_LAYER);
 }
 
 /**********************
@@ -213,7 +258,14 @@ void enable_network_layer()
 ***********************/
 void disable_network_layer()
 {
-	
+	//network_layer_status=0;
+	//获取network层进程的pid号
+    int pid;
+    FILE *fp = popen("ps -e | grep \'_network' | awk \'{print $1}\'","r");
+    char buffer[10] = {0};
+    fgets(buffer, 10, fp);
+    pid=atoi(buffer);
+	kill(pid,SIG_DISABEL_NETWORK_LAYER);
 }
 
 /**********************

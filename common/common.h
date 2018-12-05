@@ -13,23 +13,29 @@
 #include <sys/select.h>
 #include <sys/file.h>//flock,lockf
 #include <errno.h>
+#include <signal.h>
 
-#define MAX_PKT 1024 
+#define MAX_PKT 1024
 #define FALSE 0
 #define ERROR -1
 #define OK 1
 
 #define BUFSIZE 1024 //每次发送1024字节
 
-//有名管道从数据链路层向物理层传递数据，需要的fifo文件
+/*管道文件名宏定义*/
 #define FIFO_TO_PHYSICAL "fifo_to_physical.file" 
-//使用有名管道从物理层向数据链路层传递数据，需要的fifo文件
 #define FIFO_TO_DATALINK "fifo_to_datalink.file"
-//使用有名管道从数据链路层向网络层，需要的fifo文件
 #define FIFO_TO_NETWORK "fifo_to_network.file"
 
+/*各层之间事件通知信号宏定义*/
+#define SIG_CHSUM_ERR	35
+#define SIG_FRAME_ARRIVAL 36
+#define SIG_NETWORK_LAYER_READY 37
+#define SIG_ENABLE_NETWORK_LAYER 38
+#define SIG_DISABEL_NETWORK_LAYER 39
+
 typedef int Status;
-typedef enum {frame_arrival,cksum_err,timeout} event_type;
+typedef enum {frame_arrival=1,chsum_err,timeout,ack_timeout,network_layer_ready} event_type;
 typedef enum {data,ack,nak} frame_kind;
 typedef unsigned int seq_nr;	//帧编号
 //#define MAX_SEQ 1 //序号  //留给各个协议实现的文件里去定义
@@ -46,6 +52,8 @@ typedef struct
 	Packet info;
 }Frame;
 
+/*全局变量*/
+int sig_num;
 
 //从网络层（xxx_network进程）获取数据包，存入buffer中
 Status from_network_layer(Packet* buffer,char sharedFilePath[]);
