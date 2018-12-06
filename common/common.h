@@ -37,6 +37,8 @@
 #define SIG_NETWORK_LAYER_READY 37
 #define SIG_ENABLE_NETWORK_LAYER 38
 #define SIG_DISABEL_NETWORK_LAYER 39
+#define SIG_NETWORK_WR 40 //通知网络层写数据
+#define SIG_DATALINK_RD 41 //通知数据链路层写数据
 
 typedef int Status;
 typedef enum {frame_arrival=1,chsum_err,timeout,ack_timeout,network_layer_ready} event_type;
@@ -81,6 +83,7 @@ typedef struct
 
 /*全局变量*/
 int sig_num;
+
 // Timer timer;//定时器
 
 
@@ -128,5 +131,11 @@ void getSharedFilePath(int k,char path[]);
 
 //为文件描述符fd对应的文件上锁
 Status lock_set(int fd, int type) ;
- void generateData(char buf[]);
- void getTestPath(int k,char path[]);
+void generateData(char buf[]);
+void getTestPath(int k,char path[]);
+
+//通知网络层写数据
+void enable_network_write();
+
+//通知数据链路层读数据
+void enable_datalink_read();

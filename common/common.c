@@ -346,6 +346,42 @@ void disable_network_layer()
 }
 
 /**********************
+* 函数名称：enable_network_write
+* 功    能：通知网络层写数据
+* 参    数：
+* 返    回：
+* 说    明：
+***********************/
+void enable_network_write()
+{
+	//network_layer_status=1;
+	//获取network层进程的pid号
+    int pid;
+    FILE *fp = popen("ps -e | grep \'_network' | awk \'{print $1}\'","r");
+    char buffer[10] = {0};
+    fgets(buffer, 10, fp);
+    pid=atoi(buffer);
+	kill(pid,SIG_NETWORK_WR);
+}
+/**********************
+* 函数名称：enable_datalink_read
+* 功    能：通知数据链路层读数据
+* 参    数：
+* 返    回：
+* 说    明：
+***********************/
+void enable_datalink_read()
+{
+	//network_layer_status=1;
+	//获取network层进程的pid号
+    int pid;
+    FILE *fp = popen("ps -e | grep \'_dtlink' | awk \'{print $1}\'","r");
+    char buffer[10] = {0};
+    fgets(buffer, 10, fp);
+    pid=atoi(buffer);
+	kill(pid,SIG_DATALINK_RD);
+}
+/**********************
 * 函数名称：lock_set
 * 功    能：为文件描述符fd对应的文件上锁
 * 参    数：fd--文件描述符，type--锁的类型
@@ -438,6 +474,9 @@ void getSharedFilePath(int k,char path[])
 }
  */
  
+
+
+//用于网络层生成需要发送的1024字节的随机数据
  void generateData(char buf[])
 {
 	/*1、清零 2、若没填满1024字节，填充尾零*/
@@ -454,6 +493,8 @@ void getSharedFilePath(int k,char path[])
 	for(i=0;i<BUFSIZE;i++)
 		buf[i]=rand()%10+'0';
 }
+
+//临时函数
 void getTestPath(int k,char path[])
 {
 	char tmp[10];
