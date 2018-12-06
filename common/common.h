@@ -14,14 +14,15 @@
 #include <sys/file.h>//flock,lockf
 #include <errno.h>
 #include <signal.h>
+#include <sys/prctl.h>//修改进程名
 
-#define MAX_PKT 1024
+#define MAX_PKT 1024 //数据
 #define FALSE 0
 #define ERROR -1
 #define OK 1
 
 #define BUFSIZE 1024 //每次发送1024字节
-
+#define DATASIZE 1024*1024 //共发送1G字节的数据
 /*管道文件名宏定义*/
 #define FIFO_TO_PHYSICAL "fifo_to_physical.file" 
 #define FIFO_TO_DATALINK "fifo_to_datalink.file"
@@ -39,6 +40,14 @@ typedef enum {frame_arrival=1,chsum_err,timeout,ack_timeout,network_layer_ready}
 typedef enum {data,ack,nak} frame_kind;
 typedef unsigned int seq_nr;	//帧编号
 //#define MAX_SEQ 1 //序号  //留给各个协议实现的文件里去定义
+
+//状态枚举量 false-0 true-1
+typedef enum
+{
+    false,
+    true
+}Boolen;
+
 typedef struct
 {
 	unsigned char data[MAX_PKT];
@@ -52,8 +61,26 @@ typedef struct
 	Packet info;
 }Frame;
 
+typedef struct TimerNode
+{
+    unsigned int clk;   //时间
+    seq_nr seq;         //序号
+    TimerNode* nxt;     //指针
+}TimerNode,*TimerNodeLink;
+
+typedef struct
+{
+    TimerNodeLink head=NULL; //头指针
+    TimerNodeLink tail=NULL; //尾指针
+    unsigned int sumclk;
+}Timer;
+
+
 /*全局变量*/
 int sig_num;
+int byte_count=0;//记录以发送数据字节数
+Timer timer;//定时器
+
 
 //从网络层（xxx_network进程）获取数据包，存入buffer中
 Status from_network_layer(Packet* buffer,char sharedFilePath[]);
@@ -71,6 +98,10 @@ Status to_network_layer(Packet* buffer);
 //等待事件的发生，并用event记录发生的事件类型
 void wait_for_event(event_type* event);
 
+
+//创建一个定时器
+TimerNodeLink newTimer();
+
 //发送方发送数据后，启动帧k的计时器，如果超时就timeout
 //SIGALARM信号，精度在ms级，不使用alarm函数
 void start_timer(seq_nr k);
@@ -85,3 +116,9 @@ void stop_ack_timer();
 void enable_network_layer();
 
 void disable_network_layer();
+
+//根据k值返回对应的文件名network_datalink.share.xxxx
+void getSharedFilePath(int k,char path[]);
+
+//为文件描述符fd对应的文件上锁
+Status lock_set(int fd, int type) ;

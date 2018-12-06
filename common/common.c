@@ -23,6 +23,7 @@ Status from_network_layer(Packet* buffer,char sharedFilePath[])
     if (read(fd,buffer->data, BUFSIZE) < 0)
 	{
 		printf("Read file %s fail!\n",sharedFilePath);
+		lock_set(fd, F_UNLCK); //退出前先解锁
 		return FALSE;
 	}   
 
@@ -190,7 +191,25 @@ void sig_catch()
 ***********************/
 void start_timer(seq_nr k)
 {
-	
+	if (timer.head == NULL)
+    {
+        TimerNodeLink tmp = newTimer();
+        tmp->seq = k;
+        tmp->clk = 1;
+
+        timer.head = tmp;
+        timer.tail = tmp;
+        timer.sumclk = clk;
+
+        return;
+    }
+
+    TimerNodeLink tmp = newTimer();
+    tmp->seq = k;
+    tmp->clk = timer.sumclk - clk;
+
+    timer.tail->nxt = tmp;
+    timer.sumclk + clk;
 }
 
 /**********************
@@ -202,7 +221,32 @@ void start_timer(seq_nr k)
 ***********************/
 void stop_timer(seq_nr k)
 {
-	
+	TimerNodeLink tmp = timer.head;
+    if (tmp->seq == K)
+    {
+        if (timer.head->nxt != NULL)
+        {
+            timer.head = timer.head->nxt;
+            free(tmp);
+        }
+        else
+        {
+            timer.head=NULL;
+            timer.tail=NULL;
+            free(tmp);
+        }
+    }
+
+    int i = 0;
+    for (i = 0; tmp->nxt != NULL; tmp = tmp->nxt)
+    {
+        if (tmp->nxt->seq == k)
+        {
+            TimerNodeLink tmpn=tmp->nxt;
+            tmp->nxt=tmpn->nxt;
+            free(tmpn);
+        }
+    }
 }
 
 
@@ -335,8 +379,25 @@ Status lock_set(int fd, int type)
 ***********************/
 void getSharedFilePath(int k,char path[])
 {
+	memset(path,0,strlen(path));
 	char tmp[10];
 	strcpy(path,"network_datalink.share.");
-	sprintf(tmp,"%d",k);
+	sprintf(tmp,"%04d",k);
 	strcat(path,tmp);
+}
+
+/**********************
+* 函数名称：newTimer
+* 功    能：新建定时器链表
+* 参    数：
+* 返    回：
+* 说    明：
+***********************/
+TimerNodeLink newTimer()
+{
+    TimerNodeLink tmptimer = TimerNodeLink malloc(sizeof(TimerNode));
+    tmptimer->clk = 0;
+    tmptimer->nxt = NULL;
+    tmptimer->seq = 0;
+    return tmptimer;
 }
