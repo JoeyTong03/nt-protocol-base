@@ -19,7 +19,7 @@ Status from_network_layer(Packet* buffer,char sharedFilePath[])
 	
 	/* 给文件上读入锁 */  
 	lock_set(fd, F_RDLCK); 
-	
+
     if (read(fd,buffer->data, BUFSIZE) < 0)
 	{
 		printf("Read file %s fail!\n",sharedFilePath);
@@ -57,7 +57,7 @@ Status to_physical_layer(Frame* s)
 		printf("Open file %s fail!\n",FIFO_TO_PHYSICAL);
 		return FALSE;
 	}
-	if((write(fd,s,BUFSIZE))<0)
+	if((write(fd,s,FRAMESIZE))<0)
 	{
 		printf("Write pipe %s fail!\n",FIFO_TO_PHYSICAL);
 		return FALSE;
@@ -89,7 +89,7 @@ Status from_physical_layer(Frame* r)
 		printf("Open file %s fail!\n",FIFO_TO_DATALINK);
 		return FALSE;
 	}
-	if((read(fd,r,BUFSIZE))<0)
+	if((read(fd,r,FRAMESIZE))<0)
 	{
 		printf("Read pipe %s fail!\n",FIFO_TO_DATALINK);
 		return FALSE;
@@ -129,6 +129,39 @@ Status to_network_layer(Packet* buffer)
 	return OK;
 }
 
+/**********************
+* 函数名称：physical_layer_from_datalink
+* 功    能：物理层接收数据链路层的数据帧
+* 参    数：s--接收的帧
+* 返    回：Status--是否成功
+* 说    明：
+	(1)供xxx_physical进程使用,xxx与上一致
+	(2)使用有名管道实现进程间数据传递
+***********************/
+Status physical_layer_from_datalink(Frame *s)
+{
+	if(mkfifo(FIFO_TO_PHYSICAL,0666)==-1 && errno!=EEXIST)//如果不是已存在文件而创建失败，则异常退出
+	{
+		printf("Create fifo %s fail!",FIFO_TO_PHYSICAL);
+		return FALSE;
+	}
+	
+	int fd;
+	fd=open(FIFO_TO_PHYSICAL,O_RDONLY,0666);
+	if(fd<0)//打开失败
+	{
+		printf("Open file %s fail!\n",FIFO_TO_PHYSICAL);
+		return FALSE;
+	}
+	if((read(fd,s,FRAMESIZE))<0)
+	{
+		printf("Write pipe %s fail!\n",FIFO_TO_PHYSICAL);
+		return FALSE;
+	}
+	close(fd);
+	unlink(FIFO_TO_PHYSICAL);
+	return OK;
+}
 
 /**********************
 * 函数名称：wait_for_event
@@ -191,7 +224,7 @@ void sig_catch()
 ***********************/
 void start_timer(seq_nr k)
 {
-	if (timer.head == NULL)
+/* 	if (timer.head == NULL)
     {
         TimerNodeLink tmp = newTimer();
         tmp->seq = k;
@@ -209,7 +242,7 @@ void start_timer(seq_nr k)
     tmp->clk = timer.sumclk - clk;
 
     timer.tail->nxt = tmp;
-    timer.sumclk + clk;
+    timer.sumclk + clk; */
 }
 
 /**********************
@@ -221,7 +254,7 @@ void start_timer(seq_nr k)
 ***********************/
 void stop_timer(seq_nr k)
 {
-	TimerNodeLink tmp = timer.head;
+/* 	TimerNodeLink tmp = timer.head;
     if (tmp->seq == K)
     {
         if (timer.head->nxt != NULL)
@@ -246,7 +279,7 @@ void stop_timer(seq_nr k)
             tmp->nxt=tmpn->nxt;
             free(tmpn);
         }
-    }
+    } */
 }
 
 
@@ -343,7 +376,8 @@ Status lock_set(int fd, int type)
             printf("Write lock already set by %d\n", lock.l_pid);  
     }  
       
-    lock.l_type = type;  
+    lock.l_type = type; 
+	printf("The type of lock is %d.\n",type);
     //根据不同的type值进行阻塞式上锁或解锁 
     if ((fcntl(fd, F_SETLKW, &lock)) < 0)  
     {  
@@ -379,8 +413,9 @@ Status lock_set(int fd, int type)
 ***********************/
 void getSharedFilePath(int k,char path[])
 {
-	memset(path,0,strlen(path));
 	char tmp[10];
+	memset(path,0,PATHLENGTH);
+	memset(tmp,0,10);
 	strcpy(path,"network_datalink.share.");
 	sprintf(tmp,"%04d",k);
 	strcat(path,tmp);
@@ -393,11 +428,38 @@ void getSharedFilePath(int k,char path[])
 * 返    回：
 * 说    明：
 ***********************/
-TimerNodeLink newTimer()
+/* TimerNodeLink newTimer()
 {
     TimerNodeLink tmptimer = TimerNodeLink malloc(sizeof(TimerNode));
     tmptimer->clk = 0;
     tmptimer->nxt = NULL;
     tmptimer->seq = 0;
     return tmptimer;
+}
+ */
+ 
+ void generateData(char buf[])
+{
+	/*1、清零 2、若没填满1024字节，填充尾零*/
+	memset(buf,0,BUFSIZE);
+/* 	int i=0,j=0;
+	if(DATASIZE-byte_count<BUFSIZE)
+		j=DATASIZE-byte_count;
+	else
+		j=BUFSIZE;
+	for(i=0;i<j;i++)
+		buf[i]=rand()%10+'0';
+	byte_count+=j; */
+	int i=0;
+	for(i=0;i<BUFSIZE;i++)
+		buf[i]=rand()%10+'0';
+}
+void getTestPath(int k,char path[])
+{
+	char tmp[10];
+	memset(path,0,PATHLENGTH);
+	memset(tmp,0,10);
+	strcpy(path,"1551445.");
+	sprintf(tmp,"%04d",k);
+	strcat(path,tmp);
 }

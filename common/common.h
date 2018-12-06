@@ -23,9 +23,12 @@
 
 #define BUFSIZE 1024 //每次发送1024字节
 #define DATASIZE 1024*1024 //共发送1G字节的数据
+#define PATHLENGTH 40	//共享文件名长度
+#define FRAMESIZE 1024+12	//数据帧的长度
+
 /*管道文件名宏定义*/
-#define FIFO_TO_PHYSICAL "fifo_to_physical.file" 
-#define FIFO_TO_DATALINK "fifo_to_datalink.file"
+#define FIFO_TO_PHYSICAL "fifo_to_physical.file" //datalink to physical
+#define FIFO_TO_DATALINK "fifo_to_datalink.file" //
 #define FIFO_TO_NETWORK "fifo_to_network.file"
 
 /*各层之间事件通知信号宏定义*/
@@ -61,7 +64,7 @@ typedef struct
 	Packet info;
 }Frame;
 
-typedef struct TimerNode
+/* typedef struct TimerNode
 {
     unsigned int clk;   //时间
     seq_nr seq;         //序号
@@ -73,34 +76,37 @@ typedef struct
     TimerNodeLink head=NULL; //头指针
     TimerNodeLink tail=NULL; //尾指针
     unsigned int sumclk;
-}Timer;
+}Timer; */
 
 
 /*全局变量*/
 int sig_num;
-int byte_count=0;//记录以发送数据字节数
-Timer timer;//定时器
+// Timer timer;//定时器
 
 
-//从网络层（xxx_network进程）获取数据包，存入buffer中
+//数据链路层从网络层（xxx_network进程）获取数据包，存入buffer中
 Status from_network_layer(Packet* buffer,char sharedFilePath[]);
 
-//将数据帧s传递到物理层（xxx_physical进程）
+//数据链路层将数据帧s传递到物理层（xxx_physical进程）
 Status to_physical_layer(Frame* s);
 
 
-//从物理层（xxx_physical进程)获得数据帧，存入r中
+//数据链路层从物理层（xxx_physical进程)获得数据帧，存入r中
 Status from_physical_layer(Frame* r);
 
-//将数据包buffer传递到网络层(xxx_network进程
+//数据链路层将数据包buffer传递到网络层(xxx_network进程
 Status to_network_layer(Packet* buffer);
+
+//物理层从数据链路层获得数据帧，存入r中
+Status physical_layer_from_datalink(Frame *r);
+
 
 //等待事件的发生，并用event记录发生的事件类型
 void wait_for_event(event_type* event);
 
 
 //创建一个定时器
-TimerNodeLink newTimer();
+//TimerNodeLink newTimer();
 
 //发送方发送数据后，启动帧k的计时器，如果超时就timeout
 //SIGALARM信号，精度在ms级，不使用alarm函数
@@ -122,3 +128,5 @@ void getSharedFilePath(int k,char path[]);
 
 //为文件描述符fd对应的文件上锁
 Status lock_set(int fd, int type) ;
+ void generateData(char buf[]);
+ void getTestPath(int k,char path[]);
