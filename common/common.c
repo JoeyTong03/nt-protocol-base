@@ -536,7 +536,7 @@ void getSharedFilePath(int k,char path[])
 	char tmp[10];
 	memset(path,0,PATHLENGTH);
 	memset(tmp,0,10);
-	strcpy(path,"network_datalink.share.");
+	strcpy(path,"File/network_datalink.share.");
 	sprintf(tmp,"%04d",k);
 	strcat(path,tmp);
 }

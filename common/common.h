@@ -24,7 +24,7 @@
 #define DATASIZE 1024*1024 //共发送1G字节的数据
 #define PATHLENGTH 40	//共享文件名长度
 #define FRAMESIZE 1024+12	//数据帧的长度
-#define FILECOUNT 5 //暂时只发5份，方便观察
+#define FILECOUNT 1000 //暂时只发5份，方便观察
 
 /*管道文件名宏定义*/
 #define FIFO_DL_TO_PS "fifo_dl_to_ps.file" //datalink to physical
@@ -108,9 +108,6 @@ Status to_network_layer(Packet* buffer);
 
 //网络层从数据链路层获取数据包并写入path对应的文件中
 Status network_layer_from_datalink(Packet* buffer,char path[]);
-
-
-
 
 //等待事件的发生，并用event记录发生的事件类型
 void wait_for_event(event_type* event);
