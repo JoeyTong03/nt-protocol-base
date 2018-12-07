@@ -21,15 +21,15 @@
 #define ERROR -1
 #define OK 1
 
-#define BUFSIZE 1024 //每次发送1024字节
 #define DATASIZE 1024*1024 //共发送1G字节的数据
 #define PATHLENGTH 40	//共享文件名长度
 #define FRAMESIZE 1024+12	//数据帧的长度
+#define FILECOUNT 5 //暂时只发5份，方便观察
 
 /*管道文件名宏定义*/
-#define FIFO_TO_PHYSICAL "fifo_to_physical.file" //datalink to physical
-#define FIFO_TO_DATALINK "fifo_to_datalink.file" //
-#define FIFO_TO_NETWORK "fifo_to_network.file"
+#define FIFO_DL_TO_PS "fifo_dl_to_ps.file" //datalink to physical
+#define FIFO_PS_TO_DL "fifo_ps_to_dl.file" //physical to datalink
+#define FIFO_DL_TO_NT "fifo_dl_to_nt.file" //datalink to network
 
 /*各层之间事件通知信号宏定义*/
 #define SIG_CHSUM_ERR	35
@@ -37,8 +37,8 @@
 #define SIG_NETWORK_LAYER_READY 37
 #define SIG_ENABLE_NETWORK_LAYER 38
 #define SIG_DISABEL_NETWORK_LAYER 39
-#define SIG_NETWORK_WR 40 //通知网络层写数据
-#define SIG_DATALINK_RD 41 //通知数据链路层写数据
+#define SIG_WR 40 //通知写数据
+#define SIG_RD 41 //通知读数据
 
 typedef int Status;
 typedef enum {frame_arrival=1,chsum_err,timeout,ack_timeout,network_layer_ready} event_type;
@@ -93,6 +93,12 @@ Status from_network_layer(Packet* buffer,char sharedFilePath[]);
 //数据链路层将数据帧s传递到物理层（xxx_physical进程）
 Status to_physical_layer(Frame* s);
 
+//物理层从数据链路层获得数据帧，存入r中
+Status physical_layer_from_datalink(Frame *r);
+
+
+//物理层将数据帧发送到数据链路层
+Status physical_layer_to_datalink(Frame *r);
 
 //数据链路层从物理层（xxx_physical进程)获得数据帧，存入r中
 Status from_physical_layer(Frame* r);
@@ -100,8 +106,10 @@ Status from_physical_layer(Frame* r);
 //数据链路层将数据包buffer传递到网络层(xxx_network进程
 Status to_network_layer(Packet* buffer);
 
-//物理层从数据链路层获得数据帧，存入r中
-Status physical_layer_from_datalink(Frame *r);
+//网络层从数据链路层获取数据包并写入path对应的文件中
+Status network_layer_from_datalink(Packet* buffer,char path[]);
+
+
 
 
 //等待事件的发生，并用event记录发生的事件类型
@@ -131,7 +139,11 @@ void getSharedFilePath(int k,char path[]);
 
 //为文件描述符fd对应的文件上锁
 Status lock_set(int fd, int type) ;
+
+//生成1024字节随机数
 void generateData(char buf[]);
+
+//临时函数
 void getTestPath(int k,char path[]);
 
 //通知网络层写数据
@@ -139,3 +151,6 @@ void enable_network_write();
 
 //通知数据链路层读数据
 void enable_datalink_read();
+
+//通知物理层写数据
+void enable_physical_write();

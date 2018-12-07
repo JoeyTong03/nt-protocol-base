@@ -20,7 +20,7 @@ Status from_network_layer(Packet* buffer,char sharedFilePath[])
 	/* 给文件上读入锁 */  
 	lock_set(fd, F_RDLCK); 
 
-    if (read(fd,buffer->data, BUFSIZE) < 0)
+    if (read(fd,buffer->data, MAX_PKT) < 0)
 	{
 		printf("Read file %s fail!\n",sharedFilePath);
 		lock_set(fd, F_UNLCK); //退出前先解锁
@@ -44,85 +44,22 @@ Status from_network_layer(Packet* buffer,char sharedFilePath[])
 ***********************/
 Status to_physical_layer(Frame* s)
 {
-	if(mkfifo(FIFO_TO_PHYSICAL,0666)==-1 && errno!=EEXIST)//如果不是已存在文件而创建失败，则异常退出
+	if(mkfifo(FIFO_DL_TO_PS,0666)==-1 && errno!=EEXIST)//如果不是已存在文件而创建失败，则异常退出
 	{
-		printf("Create fifo %s fail!",FIFO_TO_PHYSICAL);
+		printf("Create fifo %s fail!",FIFO_DL_TO_PS);
 		return FALSE;
 	}
 	
 	int fd;
-	fd=open(FIFO_TO_PHYSICAL,O_WRONLY,0666);
+	fd=open(FIFO_DL_TO_PS,O_WRONLY,0666);
 	if(fd<0)//打开失败
 	{
-		printf("Open file %s fail!\n",FIFO_TO_PHYSICAL);
+		printf("Open file %s fail!\n",FIFO_DL_TO_PS);
 		return FALSE;
 	}
 	if((write(fd,s,FRAMESIZE))<0)
 	{
-		printf("Write pipe %s fail!\n",FIFO_TO_PHYSICAL);
-		return FALSE;
-	}
-	close(fd);
-	return OK;
-}
-
-
-/**********************
-* 函数名称：from_physical_layer
-* 功    能：从物理层（xxx_physical进程)获得数据帧，存入r中
-* 参    数：r--获取到的帧
-* 返    回：Status--是否成功
-* 说    明：供xxx_datalink进程使用,xxx与上一致
-***********************/
-Status from_physical_layer(Frame* r)
-{
-	if(mkfifo(FIFO_TO_DATALINK,0666)==-1 && errno!=EEXIST)//如果不是已存在文件而创建失败，则异常退出
-	{
-		printf("Create fifo %s fail!",FIFO_TO_DATALINK);
-		return FALSE;
-	}
-	
-	int fd;
-	fd=open(FIFO_TO_DATALINK,O_RDONLY,0666);
-	if(fd<0)//打开失败
-	{
-		printf("Open file %s fail!\n",FIFO_TO_DATALINK);
-		return FALSE;
-	}
-	if((read(fd,r,FRAMESIZE))<0)
-	{
-		printf("Read pipe %s fail!\n",FIFO_TO_DATALINK);
-		return FALSE;
-	}
-	close(fd);
-	return OK;
-}
-
-/**********************
-* 函数名称：to_network_layer
-* 功    能：将数据包buffer传递到网络层(xxx_network进程
-* 参    数：buffer--需要发送到网络层的数据包
-* 返    回：Status--是否成功
-* 说    明：供xxx_datalink进程使用,xxx与上一致
-***********************/
-Status to_network_layer(Packet* buffer)
-{
-	if(mkfifo(FIFO_TO_NETWORK,0666)==-1 && errno!=EEXIST)//如果不是已存在文件而创建失败，则异常退出
-	{
-		printf("Create fifo %s fail!",FIFO_TO_NETWORK);
-		return FALSE;
-	}
-	
-	int fd;
-	fd=open(FIFO_TO_NETWORK,O_WRONLY,0666);
-	if(fd<0)//打开失败
-	{
-		printf("Open file %s fail!\n",FIFO_TO_NETWORK);
-		return FALSE;
-	}
-	if((write(fd,buffer,BUFSIZE))<0)
-	{
-		printf("Write pipe %s fail!\n",FIFO_TO_NETWORK);
+		printf("Write pipe %s fail!\n",FIFO_DL_TO_PS);
 		return FALSE;
 	}
 	close(fd);
@@ -140,26 +77,168 @@ Status to_network_layer(Packet* buffer)
 ***********************/
 Status physical_layer_from_datalink(Frame *s)
 {
-	if(mkfifo(FIFO_TO_PHYSICAL,0666)==-1 && errno!=EEXIST)//如果不是已存在文件而创建失败，则异常退出
+	if(mkfifo(FIFO_DL_TO_PS,0666)==-1 && errno!=EEXIST)//如果不是已存在文件而创建失败，则异常退出
 	{
-		printf("Create fifo %s fail!",FIFO_TO_PHYSICAL);
+		printf("Create fifo %s fail!",FIFO_DL_TO_PS);
 		return FALSE;
 	}
 	
 	int fd;
-	fd=open(FIFO_TO_PHYSICAL,O_RDONLY,0666);
+	fd=open(FIFO_DL_TO_PS,O_RDONLY,0666);
 	if(fd<0)//打开失败
 	{
-		printf("Open file %s fail!\n",FIFO_TO_PHYSICAL);
+		printf("Open file %s fail!\n",FIFO_DL_TO_PS);
 		return FALSE;
 	}
 	if((read(fd,s,FRAMESIZE))<0)
 	{
-		printf("Write pipe %s fail!\n",FIFO_TO_PHYSICAL);
+		printf("Write pipe %s fail!\n",FIFO_DL_TO_PS);
 		return FALSE;
 	}
 	close(fd);
-	unlink(FIFO_TO_PHYSICAL);
+	unlink(FIFO_DL_TO_PS);//删除管道
+	return OK;
+}
+
+/**********************
+* 函数名称：from_physical_layer
+* 功    能：从物理层（xxx_physical进程)获得数据帧，存入r中
+* 参    数：r--获取到的帧
+* 返    回：Status--是否成功
+* 说    明：供xxx_datalink进程使用,xxx与上一致
+***********************/
+Status from_physical_layer(Frame* r)
+{
+	if(mkfifo(FIFO_PS_TO_DL,0666)==-1 && errno!=EEXIST)//如果不是已存在文件而创建失败，则异常退出
+	{
+		printf("Create fifo %s fail!",FIFO_PS_TO_DL);
+		return FALSE;
+	}
+	
+	int fd;
+	fd=open(FIFO_PS_TO_DL,O_RDONLY,0666);
+	if(fd<0)//打开失败
+	{
+		printf("Open file %s fail!\n",FIFO_PS_TO_DL);
+		return FALSE;
+	}
+	if((read(fd,r,FRAMESIZE))<0)
+	{
+		printf("Read pipe %s fail!\n",FIFO_PS_TO_DL);
+		return FALSE;
+	}
+	close(fd);
+	unlink(FIFO_PS_TO_DL);//删除管道
+	return OK;
+}
+
+/**********************
+* 函数名称：to_network_layer
+* 功    能：将数据包buffer传递到网络层(xxx_network进程
+* 参    数：buffer--需要发送到网络层的数据包
+* 返    回：Status--是否成功
+* 说    明：供xxx_datalink进程使用,xxx与上一致
+***********************/
+Status to_network_layer(Packet* buffer)
+{
+	if(mkfifo(FIFO_DL_TO_NT,0666)==-1 && errno!=EEXIST)//如果不是已存在文件而创建失败，则异常退出
+	{
+		printf("Create fifo %s fail!",FIFO_DL_TO_NT);
+		return FALSE;
+	}
+	
+	int fd;
+	fd=open(FIFO_DL_TO_NT,O_WRONLY,0666);
+	if(fd<0)//打开失败
+	{
+		printf("Open file %s fail!\n",FIFO_DL_TO_NT);
+		return FALSE;
+	}
+	if((write(fd,buffer,MAX_PKT))<0)
+	{
+		printf("Write pipe %s fail!\n",FIFO_DL_TO_NT);
+		return FALSE;
+	}
+	close(fd);
+	return OK;
+}
+
+/**********************
+* 函数名称：network_layer_from_datalink
+* 功    能：网络层从数据链路层中获取数据包，存入buffer中;
+			并将buffer的内容写入network_datalink.share.xxxx，与发送方网络层一致，便于比较
+* 参    数：buffer--获取到的数据包
+* 返    回：Status--是否成功
+* 说    明：供xxx_network进程使用,xxx与上一致
+***********************/
+Status network_layer_from_datalink(Packet* buffer,char path[])
+{
+	if(mkfifo(FIFO_DL_TO_NT,0666)==-1 && errno!=EEXIST)//如果不是已存在文件而创建失败，则异常退出
+	{
+		printf("Create fifo %s fail!",FIFO_DL_TO_NT);
+		return FALSE;
+	}
+	
+	int fd;
+	fd=open(FIFO_DL_TO_NT,O_RDONLY,0666);
+	if(fd<0)//打开失败
+	{
+		printf("Open file %s fail!\n",FIFO_DL_TO_NT);
+		return FALSE;
+	}
+	if((read(fd,buffer,MAX_PKT))<0)
+	{
+		printf("Read pipe %s fail!\n",FIFO_DL_TO_NT);
+		return FALSE;
+	}
+	close(fd);
+	unlink(FIFO_DL_TO_NT);
+	
+	/* 为了便于观察写入文件 */
+	int fd1;
+	fd1=open(path,O_CREAT | O_WRONLY,0666);
+	if(fd1<0)
+	{
+		printf("Open file %s fail!\n",path);
+		return FALSE;		
+	}
+	if((write(fd1,buffer,MAX_PKT))<0)
+	{
+		printf("Write file %s fail!\n",path);
+		return FALSE;
+	}
+	close(fd1);
+	return OK;
+}
+
+/**********************
+* 函数名称：physical_layer_to_datalink
+* 功    能：物理层将数据帧发送给数据链路层
+* 参    数：buffer--获取到的数据包
+* 返    回：Status--是否成功
+* 说    明：供xxx_network进程使用,xxx与上一致
+***********************/
+Status physical_layer_to_datalink(Frame *r)
+{
+	if(mkfifo(FIFO_PS_TO_DL,0666)==-1 && errno!=EEXIST)//如果不是已存在文件而创建失败，则异常退出
+	{
+		printf("Create fifo %s fail!",FIFO_PS_TO_DL);
+		return FALSE;
+	}
+	
+	int fd;
+	fd=open(FIFO_PS_TO_DL,O_WRONLY,0666);
+	if(fd<0)//打开失败
+	{
+		printf("Open file %s fail!\n",FIFO_PS_TO_DL);
+		return FALSE;
+	}
+	if((write(fd,r,FRAMESIZE))<0)
+	{
+		printf("Write pipe %s fail!\n",FIFO_PS_TO_DL);
+		return FALSE;
+	}
+	close(fd);
 	return OK;
 }
 
@@ -176,6 +255,7 @@ void wait_for_event(event_type* event)
 {
 	while(sig_num==0)
 		sleep(1);
+	
 	if(	sig_num==SIG_CHSUM_ERR | sig_num==SIG_FRAME_ARRIVAL |
 		sig_num==SIG_NETWORK_LAYER_READY |sig_num==SIG_ENABLE_NETWORK_LAYER |
 		sig_num==SIG_DISABEL_NETWORK_LAYER | sig_num==SIGALRM
@@ -316,14 +396,6 @@ void stop_ack_timer()
 ***********************/
 void enable_network_layer()
 {
-	//network_layer_status=1;
-	//获取network层进程的pid号
-    int pid;
-    FILE *fp = popen("ps -e | grep \'_network' | awk \'{print $1}\'","r");
-    char buffer[10] = {0};
-    fgets(buffer, 10, fp);
-    pid=atoi(buffer);
-	kill(pid,SIG_ENABLE_NETWORK_LAYER);
 }
 
 /**********************
@@ -335,14 +407,6 @@ void enable_network_layer()
 ***********************/
 void disable_network_layer()
 {
-	//network_layer_status=0;
-	//获取network层进程的pid号
-    int pid;
-    FILE *fp = popen("ps -e | grep \'_network' | awk \'{print $1}\'","r");
-    char buffer[10] = {0};
-    fgets(buffer, 10, fp);
-    pid=atoi(buffer);
-	kill(pid,SIG_DISABEL_NETWORK_LAYER);
 }
 
 /**********************
@@ -357,11 +421,11 @@ void enable_network_write()
 	//network_layer_status=1;
 	//获取network层进程的pid号
     int pid;
-    FILE *fp = popen("ps -e | grep \'_network' | awk \'{print $1}\'","r");
+    FILE *fp = popen("ps -e | grep \'network' | awk \'{print $1}\'","r");
     char buffer[10] = {0};
     fgets(buffer, 10, fp);
     pid=atoi(buffer);
-	kill(pid,SIG_NETWORK_WR);
+	kill(pid,SIG_WR);
 }
 /**********************
 * 函数名称：enable_datalink_read
@@ -375,11 +439,30 @@ void enable_datalink_read()
 	//network_layer_status=1;
 	//获取network层进程的pid号
     int pid;
-    FILE *fp = popen("ps -e | grep \'_dtlink' | awk \'{print $1}\'","r");
+    FILE *fp = popen("ps -e | grep \'dtlink' | awk \'{print $1}\'","r");
     char buffer[10] = {0};
     fgets(buffer, 10, fp);
     pid=atoi(buffer);
-	kill(pid,SIG_DATALINK_RD);
+	kill(pid,SIG_RD);
+}
+
+/**********************
+* 函数名称：enable_physical_write
+* 功    能：通知物理层写数据
+* 参    数：
+* 返    回：
+* 说    明：
+***********************/
+void enable_physical_write()
+{
+	//network_layer_status=1;
+	//获取network层进程的pid号
+    int pid;
+    FILE *fp = popen("ps -e | grep \'physic' | awk \'{print $1}\'","r");
+    char buffer[10] = {0};
+    fgets(buffer, 10, fp);
+    pid=atoi(buffer);
+	kill(pid,SIG_WR);
 }
 /**********************
 * 函数名称：lock_set
@@ -440,6 +523,7 @@ Status lock_set(int fd, int type)
     return OK;  
 }  
 
+
 /**********************
 * 函数名称：getSharedFilePath
 * 功    能：根据k值获得对应的共享文件路径，格式为network_datalink.share.xxxx
@@ -480,17 +564,17 @@ void getSharedFilePath(int k,char path[])
  void generateData(char buf[])
 {
 	/*1、清零 2、若没填满1024字节，填充尾零*/
-	memset(buf,0,BUFSIZE);
+	memset(buf,0,MAX_PKT);
 /* 	int i=0,j=0;
-	if(DATASIZE-byte_count<BUFSIZE)
+	if(DATASIZE-byte_count<MAX_PKT)
 		j=DATASIZE-byte_count;
 	else
-		j=BUFSIZE;
+		j=MAX_PKT;
 	for(i=0;i<j;i++)
 		buf[i]=rand()%10+'0';
 	byte_count+=j; */
 	int i=0;
-	for(i=0;i<BUFSIZE;i++)
+	for(i=0;i<MAX_PKT;i++)
 		buf[i]=rand()%10+'0';
 }
 
