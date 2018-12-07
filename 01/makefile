@@ -4,13 +4,13 @@ compiler=gcc
 
 senderSRCS :=../common/common.c sender1.c
 senderTARGET :=sender1
-senderOBJDIR = common.o sender1.o
 
-
+receiverSRCS :=../common/common.c receiver1.c
+receiverTARGET := receiver1
 
 all:
 	$(compiler) -o $(senderTARGET) $(senderSRCS)
-#	$(compiler) -o $(ClientTARGET) $(ClientSRCS)
+	$(compiler) -o $(receiverTARGET) $(receiverSRCS)
 #	cleano
 
 #all:$(TARGET) cleano
@@ -21,3 +21,4 @@ all:
 .PHONY:clean
 clean:
 	rm -rf $(senderTARGET) 1551445* network* fifo*
+	rm -rf $(receiverTARGET) 
