@@ -85,7 +85,7 @@ void datalink_read(int sig)
 	
 }
 
-int main()
+int main(int argc,char **argv)
 {
 	pid_t nt_pid;//网络层进程的pid号
 	pid_t dl_pid;//数据链路层进程的pid号
@@ -104,6 +104,7 @@ int main()
 			随机生成1024字节数据写入共享文件
 			实现网络层到数据链路层的数据传递
 			*/
+		mkdir("File",0666);
 		(void) signal(SIG_WR,network_write);
 		
 		while(1)
@@ -119,8 +120,6 @@ int main()
 			/* 修改进程名，便于根据进程名获得pid值，发送信号 */
 			char new_name[20] = "sender1_dtlink";
 			prctl(PR_SET_NAME, new_name);
-			
-			enable_network_write();//先通知网络层写数据
 			
 			/* 
 				等待网络层写完共享文件数据后发“读”信号，
@@ -142,37 +141,72 @@ int main()
 				char new_name[20] = "sender1_physic";
 				prctl(PR_SET_NAME, new_name);
 				
+				/* 使用TCP套接字通信模拟物理线路通信 */
+				int server_sockfd;//服务器端套接字
+				int client_sockfd;//客户端套接字
+				struct sockaddr_in my_addr;//服务器套接字地址结构体
+				struct sockaddr_in remote_addr;//客户端套接字地址结构体
+				int sin_size;
+				memset(&my_addr,0,sizeof(my_addr));//服务器套接字地址结构体初始化--清零
+				my_addr.sin_family=AF_INET;//因特网通信协议
+				my_addr.sin_port=htons(atoi(argv[1]));
+				my_addr.sin_addr.s_addr=htonl(INADDR_ANY);
+				/*创建服务器端套接字*/
+				if((server_sockfd=socket(PF_INET,SOCK_STREAM,0))<0)
+				{
+					perror("socket error");
+					return 1;
+				}
+
+				/*设置SO(_REUSEADDR*/
+				int enable=1;
+				if(setsockopt(server_sockfd,SOL_SOCKET,SO_REUSEADDR,&enable,sizeof(int))<0)
+					perror("setsockopt(SO_REUSEADDR) failed");
+				
+				/*将套接字绑定到服务器的网络地址上*/
+				if(bind(server_sockfd,(struct sockaddr *)&my_addr,sizeof(struct sockaddr))<0)
+				{
+					perror("bind error");
+					return 1;
+				}
+
+				/*监听连接请求，监听队列长度为5*/
+				if(listen(server_sockfd,5)<0)
+				{
+					perror("listen error");
+					return 1;
+				}
+
+				sin_size=sizeof(struct sockaddr_in);
+				/*等待客户端连接请求到达*/
+				if((client_sockfd=accept(server_sockfd,(struct sockaddr *)&remote_addr,&sin_size))<0)
+				{
+					perror("accept error");
+					return 1;
+				}
+				
+				enable_network_write();//物理层准备好后通知应用层写数据
+				
 				Frame s;
 				Packet buffer;
-				int fd;
-				char testPath[PATHLENGTH];
 				int count=1;
+				/*接收客户端的数据并将其发送给客户端，resv返回收到的字节数，send返回发送的字节数*/
 				while(1)
 				{
 					/* 从数据链路层通过有名管道获取数据帧 */
 					physical_layer_from_datalink(&s);
-					
-					/* 为检查单侧通信，暂时写入文件便于观察，后续需要修改为socket发送到receiver端 */
-					getTestPath(count,testPath);
-					fd=open(testPath,O_CREAT | O_WRONLY ,0666);
-					if(fd<0)//文件创建/打开失败
+					if(write(client_sockfd,&s,FRAMESIZE)<0)
 					{
-						printf("Test file %s open fail!\n",testPath);
+						printf("Write socket fail!\n");
 						continue;
 					}
-					if(write(fd,&s,FRAMESIZE)<0)
-					{
-						printf("Write test file %s fail!\n",testPath);
-						exit(-1);
-						//continue;
-					}
-					
 					count++;
-					if(count>FILECOUNT)//暂时只发5份，方便观察
+					if(count>FILECOUNT)
 						break;
 				}
 				while(1)
 					sleep(1);
+				close(client_sockfd);
 				exit(0);
 			}
 			else if(ps_pid>0)//父进程

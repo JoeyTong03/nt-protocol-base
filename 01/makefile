@@ -20,5 +20,5 @@ all:
 
 .PHONY:clean
 clean:
-	rm -rf $(senderTARGET) 1551445* network* fifo*
+	rm -rf $(senderTARGET) fifo* File
 	rm -rf $(receiverTARGET) 
