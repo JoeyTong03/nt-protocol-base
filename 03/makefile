@@ -2,11 +2,11 @@
 
 compiler=gcc
 
-senderSRCS :=../common/common.c sender1.c
-senderTARGET :=sender1
+senderSRCS :=../common/common.c sender3.c
+senderTARGET :=sender3
 
-receiverSRCS :=../common/common.c receiver1.c
-receiverTARGET := receiver1
+receiverSRCS :=../common/common.c receiver3.c
+receiverTARGET := receiver3
 
 all:
 	$(compiler) -o $(senderTARGET) $(senderSRCS)

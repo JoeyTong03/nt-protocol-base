@@ -24,7 +24,7 @@
 #define DATASIZE 1024*1024 //共发送1G字节的数据
 #define PATHLENGTH 40	//共享文件名长度
 #define FRAMESIZE 1024+12	//数据帧的长度
-#define FILECOUNT 1000 //暂时只发5份，方便观察
+#define FILECOUNT 10 //暂时只发5份，方便观察
 
 /*管道文件名宏定义*/
 #define FIFO_DL_TO_PS "fifo_dl_to_ps.file" //datalink to physical
@@ -39,6 +39,7 @@
 #define SIG_DISABEL_NETWORK_LAYER 39
 #define SIG_WR 40 //通知写数据
 #define SIG_RD 41 //通知读数据
+#define SIG_TIMEOUT 42 //超时信号
 
 typedef int Status;
 typedef enum {frame_arrival=1,chsum_err,timeout,ack_timeout,network_layer_ready} event_type;
