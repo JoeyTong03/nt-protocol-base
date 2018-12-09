@@ -4,134 +4,157 @@
 #include "../common/common.h"
 #include "../common/Timer.h"
 
-int count=1;
+int count = 1;
 
 int client_sockfd;
 void physical_write(int sig)
 {
 	Frame r;
-	if(count>FILECOUNT)//æš‚æ—¶åªå‘5åˆ†
+	if (count > FILECOUNT) //ÔİÊ±Ö»·¢5·Ö
 		return;
-	
-	//generateData(r.info.data);//å¡«å……æ•°æ®å¸§çš„å†…å®¹,å‡è£…æ˜¯ä»å‘é€æ–¹æ”¶åˆ°çš„,ä¹‹åå°†è¿™éƒ¨åˆ†æ”¹ä¸ºsocketé€šä¿¡å³å¯
 
-	if(read(client_sockfd,&r,FRAMESIZE)<0)
+	//generateData(r.info.data);//Ìî³äÊı¾İÖ¡µÄÄÚÈİ,¼Ù×°ÊÇ´Ó·¢ËÍ·½ÊÕµ½µÄ,Ö®ºó½«Õâ²¿·Ö¸ÄÎªsocketÍ¨ĞÅ¼´¿É
+
+	if (read(client_sockfd, &r, FRAMESIZE) < 0)
 	{
 		printf("TCP socket read fail!\n");
 		return;
-	}		
-	physical_layer_to_datalink(&r);//å°†æ•°æ®ä¼ é€’åˆ°æ•°æ®é“¾è·¯å±‚,é€šè¿‡æœ‰åç®¡é“æ–¹å¼
-	printf("[Physical layer send]:%d\n",count);
-	count++;	
+	}
+	physical_layer_to_datalink(&r); //½«Êı¾İ´«µİµ½Êı¾İÁ´Â·²ã,Í¨¹ıÓĞÃû¹ÜµÀ·½Ê½
+	printf("[Physical layer send]:%d\n", count);
+	count++;
 }
 
-int main(int argc,char *argv[])
+//ÍøÂç²ã½ø³ÌËù×öµÄÊÂÇé
+void network_layer()
 {
-	pid_t nt_pid;//ç½‘ç»œå±‚è¿›ç¨‹çš„pidå·
-	pid_t dl_pid;//æ•°æ®é“¾è·¯å±‚è¿›ç¨‹çš„pidå·
-	pid_t ps_pid;//ç‰©ç†å±‚è¿›ç¨‹çš„pidå·
-	while((nt_pid=fork())<0)
-		sleep(1);
-	
-	if(nt_pid==0)//ç½‘ç»œå±‚è¿›ç¨‹
+	mkdir("File", 0666);
+	/* ĞŞ¸Ä½ø³ÌÃû£¬±ãÓÚ¸ù¾İ½ø³ÌÃû»ñµÃpidÖµ£¬·¢ËÍĞÅºÅ */
+	char new_name[20] = "recv1_network";
+	prctl(PR_SET_NAME, new_name);
+
+	Packet buffer;
+	int count = 1;
+	char fileName[PATHLENGTH];
+	while (1)
 	{
-		mkdir("File",0666);
-		/* ä¿®æ”¹è¿›ç¨‹åï¼Œä¾¿äºæ ¹æ®è¿›ç¨‹åè·å¾—pidå€¼ï¼Œå‘é€ä¿¡å· */
-		char new_name[20] = "recv1_network"; 
-		prctl(PR_SET_NAME, new_name);
-		
-		Packet buffer;
-		int count=1;
-		char fileName[PATHLENGTH];
-		while(1)
-		{
-			enable_physical_write();//é€šçŸ¥ç‰©ç†å±‚å†™æ•°æ®
-			getSharedFilePath(count,fileName);
-			network_layer_from_datalink(&buffer,fileName);
-			printf("[Network layer recv]:%d\n",count);
-			count++;
-			if(count>FILECOUNT)
-				break;
-		}
-		while(1)
-			sleep(1);
-		exit(0);
-			
+		enable_physical_write(); //Í¨ÖªÎïÀí²ãĞ´Êı¾İ
+		getSharedFilePath(count, fileName);
+		network_layer_from_datalink(&buffer, fileName);
+		printf("[Network layer recv]:%d\n", count);
+		count++;
+		if (count > FILECOUNT)
+			break;
 	}
-	else if(nt_pid>0)//çˆ¶è¿›ç¨‹forkå­è¿›ç¨‹--æ•°æ®é“¾è·¯å±‚
+	while (1)
+		sleep(1);
+	exit(0);
+}
+
+//Êı¾İÁ´Â·²ãËù×öµÄÊÂÇé
+void datalink_layer()
+{
+	/* ĞŞ¸Ä½ø³ÌÃû£¬±ãÓÚ¸ù¾İ½ø³ÌÃû»ñµÃpidÖµ£¬·¢ËÍĞÅºÅ */
+	char new_name[20] = "recv1_dtlink";
+	prctl(PR_SET_NAME, new_name);
+	Frame r;
+	Packet buffer;
+	int count = 1;
+	while (1)
 	{
-		while((dl_pid=fork())<0)
+
+
+		/* ´ÓÎïÀí²ã½ÓÊÕÊı¾İÖ¡ */
+		from_physical_layer(&r);
+		printf("[Datalink layer recv]:%d\n", count);
+
+		/* ½«Êı¾İÖ¡ÖĞµÄÊı¾İ°ü°şÀë³öÀ´£¬½»¸øbuffer */
+		int i = 0;
+		for (i = 0; i < MAX_PKT; i++)
+			buffer.data[i] = (r.info.data)[i];
+
+		/* ½«Êı¾İ°ü´«µİ¸øÍøÂç²ã */
+		to_network_layer(&buffer);
+		printf("[Datalink layer send]:%d\n", count);
+		count++;
+		if (count > FILECOUNT)
+			break;
+	}
+	while (1)
+		sleep(1);
+	exit(0);
+}
+
+//ÎïÀí²ãËù×öµÄÊÂÇé
+void physical_layer(char* ip_addr,int port)
+{
+	/* ĞŞ¸Ä½ø³ÌÃû£¬±ãÓÚ¸ù¾İ½ø³ÌÃû»ñµÃpidÖµ£¬·¢ËÍĞÅºÅ */
+	char new_name[20] = "recv1_physic";
+	prctl(PR_SET_NAME, new_name);
+
+	struct sockaddr_in remote_addr; //¿Í»§¶ËÍøÂçµØÖ·½á¹¹Ìå
+	memset(&remote_addr, 0, sizeof(remote_addr));
+	remote_addr.sin_family = AF_INET;				  //Í¨ĞÅĞ­ÒéÎªÒòÌØÍø
+	remote_addr.sin_port = htons(port);	  //·şÎñÆ÷¶Ë¿ÚºÅ
+	remote_addr.sin_addr.s_addr = inet_addr(ip_addr); //·şÎñÆ÷IPµØÖ·
+	/*´´½¨¿Í»§¶ËÌ×½Ó×Ö*/
+	if ((client_sockfd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
+	{
+		perror("socket error");
+		exit(-2);
+	}
+
+	/*½«Ì×½Ó×Ö°ó¶¨µ½¿Í»§¶ËÍøÂçµØÖ·ÉÏ*/
+	if (connect(client_sockfd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) < 0)
+	{
+		perror("connect error");
+		exit(-1);
+	}
+
+	/* ²¶×½ÍøÂç²ã·¢³öµÄ¡°Ğ´¡±ĞÅºÅºóÔÙ¶ÁÈ¡Êı¾İ£¬²¢ÏòÊı¾İÁ´Â·²ã´«µİ */
+	(void)signal(SIG_WR, physical_write);
+
+	while (1)
+		sleep(1);
+	close(client_sockfd);
+	exit(0);
+}
+
+int main(int argc, char *argv[])
+{
+	pid_t nt_pid; //ÍøÂç²ã½ø³ÌµÄpidºÅ
+	pid_t dl_pid; //Êı¾İÁ´Â·²ã½ø³ÌµÄpidºÅ
+	pid_t ps_pid; //ÎïÀí²ã½ø³ÌµÄpidºÅ
+	while ((nt_pid = fork()) < 0)
+		sleep(1);
+
+	if (nt_pid == 0)
+	{
+		//ÍøÂç²ã½ø³Ì
+		network_layer();
+	}
+	else if (nt_pid > 0) //¸¸½ø³Ìfork×Ó½ø³Ì
+	{
+		while ((dl_pid = fork()) < 0)
 			sleep(1);
-		if(dl_pid==0)//æ•°æ®é“¾è·¯å±‚è¿›ç¨‹
+
+		if (dl_pid == 0)
 		{
-			/* ä¿®æ”¹è¿›ç¨‹åï¼Œä¾¿äºæ ¹æ®è¿›ç¨‹åè·å¾—pidå€¼ï¼Œå‘é€ä¿¡å· */
-			char new_name[20] = "recv1_dtlink";
-			prctl(PR_SET_NAME, new_name);
-			Frame r;
-			Packet buffer;
-			int count=1;
-			while(1)
-			{
-				/* ä»ç‰©ç†å±‚æ¥æ”¶æ•°æ®å¸§ */
-				from_physical_layer(&r);
-				printf("[Datalink layer recv]:%d\n",count);
-				
-				/* å°†æ•°æ®å¸§ä¸­çš„æ•°æ®åŒ…å‰¥ç¦»å‡ºæ¥ï¼Œäº¤ç»™buffer */
-				int i=0;
-				for(i=0;i<MAX_PKT;i++)
-					buffer.data[i]=(r.info.data)[i];
-				
-				/* å°†æ•°æ®åŒ…ä¼ é€’ç»™ç½‘ç»œå±‚ */
-				to_network_layer(&buffer);
-				printf("[Datalink layer send]:%d\n",count);
-				count++;
-				if(count>FILECOUNT)
-					break;				
-			}
-			while(1)
-				sleep(1);
-			exit(0);
+			//Êı¾İÁ´Â·²ã½ø³Ì
+			datalink_layer();
 		}
-		else if(dl_pid>0)//çˆ¶è¿›ç¨‹forkå­è¿›ç¨‹--ç‰©ç†å±‚
+		else if (dl_pid > 0)
 		{
-			
-			while((ps_pid=fork())<0)
+			while ((ps_pid = fork()) < 0)
 				sleep(1);
-			if(ps_pid==0)//ç‰©ç†å±‚è¿›ç¨‹
+
+			if (ps_pid == 0)
 			{
-				/* ä¿®æ”¹è¿›ç¨‹åï¼Œä¾¿äºæ ¹æ®è¿›ç¨‹åè·å¾—pidå€¼ï¼Œå‘é€ä¿¡å· */
-				char new_name[20] = "recv1_physic";
-				prctl(PR_SET_NAME, new_name);
-				
-				struct sockaddr_in remote_addr;//å®¢æˆ·ç«¯ç½‘ç»œåœ°å€ç»“æ„ä½“
-				memset(&remote_addr,0,sizeof(remote_addr));
-				remote_addr.sin_family=AF_INET;//é€šä¿¡åè®®ä¸ºå› ç‰¹ç½‘
-				remote_addr.sin_port=htons(atoi(argv[2]));//æœåŠ¡å™¨ç«¯å£å·
-				remote_addr.sin_addr.s_addr=inet_addr(argv[1]);//æœåŠ¡å™¨IPåœ°å€
-				/*åˆ›å»ºå®¢æˆ·ç«¯å¥—æ¥å­—*/
-				if((client_sockfd=socket(PF_INET,SOCK_STREAM,0))<0)
-				{
-					perror("socket error");
-					return 1;
-				}
-
-				/*å°†å¥—æ¥å­—ç»‘å®šåˆ°å®¢æˆ·ç«¯ç½‘ç»œåœ°å€ä¸Š*/
-				if(connect(client_sockfd,(struct sockaddr *)&remote_addr,sizeof(struct sockaddr))<0)
-				{
-					perror("connect error");
-					return 1;
-				}
-				
-				/* æ•æ‰ç½‘ç»œå±‚å‘å‡ºçš„â€œå†™â€ä¿¡å·åå†è¯»å–æ•°æ®ï¼Œå¹¶å‘æ•°æ®é“¾è·¯å±‚ä¼ é€’ */
-				(void) signal(SIG_WR,physical_write);
-
-				while(1)
-					sleep(1);
-				close(client_sockfd);
-				exit(0);
+				//¸¸½ø³Ìfork×Ó½ø³Ì--ÎïÀí²ã
+				physical_layer(argv[1],atoi(argv[2]));
 			}
-			else if(ps_pid>0)//çˆ¶è¿›ç¨‹
-				exit(0);	
+			else if (ps_pid > 0) //¸¸½ø³Ì
+				exit(0);
 		}
 	}
 }
