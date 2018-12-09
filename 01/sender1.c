@@ -1,8 +1,9 @@
 /* sender1.c */
 
 #include "../common/common.h"
-int count=1; //发送文件的数量
-
+int count=1; //共享文件序号
+int datacount=0;//已发送数据字节数
+int isEnd=0;
 /**********************
 * 函数名称：network_write
 * 功    能：网络层接收到enable_network_layer信号后的处理函数，
@@ -18,37 +19,51 @@ void network_write(int sig)
 	char sharedFilePath[PATHLENGTH];//共享文件名/路径network_datalink.share.xxxx
 	int fd;//共享文件描述符
 	char buf[MAX_PKT];//生成的数据
-	if(count<=FILECOUNT)//暂时只发5份，方便观察
+	int perCount=1024;
+	int tmp_isEnd=0;
+	if(datacount<=TOTALDATASIZE)//
 	{
-		getSharedFilePath(count,sharedFilePath);
-		fd=open(sharedFilePath,O_CREAT | O_WRONLY,0666);
-		if(fd<0)//文件创建/打开失败
-		{
-			printf("Shared file %s open fail!\n",sharedFilePath);
-			return ;
-		}
-		/*为共享文件加写锁*/
-		if(lock_set(fd,F_WRLCK)==FALSE)//上写锁失败
-			exit(-1); 
-			//continue;
-		
-		/*生成1024字节数据*/
-		generateData(buf);
-		
-		/*向共享文件中写入要传递的数据*/
-		if(write(fd,buf,MAX_PKT)<0)
-		{
-			printf("Write share file %s fail!\n",sharedFilePath);
-			lock_set(fd,F_UNLCK);//退出前先解锁
-			exit(-1);
-			//continue;
-		}
-		lock_set(fd,F_UNLCK);//退出前先解锁
-		close(fd);
-		enable_datalink_read();//通知数据链路层读数据
-		count++;
+		if(TOTALDATASIZE-datacount<MAX_PKT)//最后一个数据报不足1024字节
+			perCount=TOTALDATASIZE-datacount;
+		readDataFromFile(buf,perCount);//从1G文件中每次读取perCount字节
+		datacount+=1024;
 	}
+	else
+	{
+		memset(buf,'\0',MAX_PKT);//作为结束标志的全尾零文件标志
+		tmp_isEnd=1;
+	}
+		
+	getSharedFilePath(count,sharedFilePath);
+	fd=open(sharedFilePath,O_CREAT | O_WRONLY,0666);
+	if(fd<0)//文件创建/打开失败
+	{
+		printf("Shared file %s open fail!\n",sharedFilePath);
+		return ;
+	}
+	/*为共享文件加写锁*/
+	if(lock_set(fd,F_WRLCK)==FALSE)//上写锁失败
+		exit(-1); 
+		//continue;
+	
+	/*向共享文件中写入要传递的数据*/
+	if(write(fd,buf,MAX_PKT)<0)
+	{
+		printf("Write share file %s fail!\n",sharedFilePath);
+		lock_set(fd,F_UNLCK);//退出前先解锁
+		exit(-1);
+		//continue;
+	}
+	lock_set(fd,F_UNLCK);//退出前先解锁
+	close(fd);
+	enable_datalink_read();//通知数据链路层读数据
+	count++;
+	if(count>999)
+		count=1;//轮询使用
+	if(tmp_isEnd)
+		isEnd=tmp_isEnd;	
 }
+
 /**********************
 * 函数名称：datalink_read
 * 功    能：数据链路层接收到_DATALINK_RD信号后的处理函数，
@@ -64,29 +79,39 @@ void datalink_read(int sig)
 	Frame s;
 	Packet buffer;
 	char sharedFilePath[PATHLENGTH];//共享文件名/路径network_datalink.share.xxxx
-	if(count<=FILECOUNT)
-	{
-		getSharedFilePath(count,sharedFilePath);
-		
-		/* 从网络层获取数据，通过共享文件+信号方式 */
-		from_network_layer(&buffer,sharedFilePath);
-		
-		/* 将从网络层获取的数据包“装入”数据帧 */
-		int i=0;
-		for(i=0;i<MAX_PKT;i++)
-			(s.info.data)[i]=(buffer.data)[i];
-		
-		/* 将数据帧传递给物理层 */
-		to_physical_layer(&s);
-		
-		enable_network_write();//通知网络层写数据
-		count++;//该函数只在数据链路层中被调用，
-	}
+	
+	getSharedFilePath(count,sharedFilePath);
+	
+	/* 从网络层获取数据，通过共享文件+信号方式 */
+	from_network_layer(&buffer,sharedFilePath);
+	
+	/* 检查是否是全\0数据包 */
+	int tmp_isEnd=0;
+	char tmp[MAX_PKT];
+	memset(tmp,'\0',MAX_PKT);
+	if(strcmp(tmp,buffer.data)==0)//是全尾零数据包
+		tmp_isEnd=1;
+	
+	
+	/* 将从网络层获取的数据包“装入”数据帧 */
+	int i=0;
+	for(i=0;i<MAX_PKT;i++)
+		(s.info.data)[i]=(buffer.data)[i];
+	
+	/* 将数据帧传递给物理层 */
+	to_physical_layer(&s);
+	
+	enable_network_write();//通知网络层写数据
+	count++;//该函数只在数据链路层中被调用，
+	if(count>999)//轮训读数据
+		count=1;
+	if(tmp_isEnd)
+		isEnd=1;
 	
 }
 
 int main(int argc,char **argv)
-{
+{	
 	pid_t nt_pid;//网络层进程的pid号
 	pid_t dl_pid;//数据链路层进程的pid号
 	pid_t ps_pid;//物理层进程的pid号
@@ -108,7 +133,11 @@ int main(int argc,char **argv)
 		(void) signal(SIG_WR,network_write);
 		
 		while(1)
+		{
+			if(isEnd)
+				break;
 			sleep(1);
+		}
 		exit(0);
 	}
 	else if(nt_pid>0)//父进程fork子进程--数据链路层
@@ -128,7 +157,12 @@ int main(int argc,char **argv)
 			(void) signal(SIG_RD,datalink_read);
 			
 			while(1)
+			{
+				if(isEnd)
+					break;
 				sleep(1);
+			}
+				
 			exit(0);			
 		}
 		else if(dl_pid>0)//父进程fork子进程--物理层
@@ -190,6 +224,8 @@ int main(int argc,char **argv)
 				Frame s;
 				Packet buffer;
 				int count=1;
+				char tmp[MAX_PKT];
+				memset(tmp,'\0',MAX_PKT);
 				/*接收客户端的数据并将其发送给客户端，resv返回收到的字节数，send返回发送的字节数*/
 				while(1)
 				{
@@ -201,11 +237,12 @@ int main(int argc,char **argv)
 						continue;
 					}
 					count++;
-					if(count>FILECOUNT)
+					
+					/* 检查是否是全\0数据包 */
+					if(strcmp(tmp,s.info.data)==0)//是全尾零数据包
 						break;
 				}
-				while(1)
-					sleep(1);
+				printf("Send end!\n");
 				close(client_sockfd);
 				exit(0);
 			}

@@ -1,24 +1,30 @@
 /* receiver.c */
 #include "../common/common.h"
 int count=1;
-
+int isEnd=0;
 int client_sockfd;
 void physical_write(int sig)
 {
 	Frame r;
-	if(count>FILECOUNT)//暂时只发5分
-		return;
-	
-	//generateData(r.info.data);//填充数据帧的内容,假装是从发送方收到的,之后将这部分改为socket通信即可
-
 	if(read(client_sockfd,&r,FRAMESIZE)<0)
 	{
 		printf("TCP socket read fail!\n");
 		return;
 	}		
 	physical_layer_to_datalink(&r);//将数据传递到数据链路层,通过有名管道方式
-	printf("[Physical layer send]:%d\n",count);
-	count++;	
+	
+	/* 检查接收到的是否是全零包 */
+	char tmp[MAX_PKT];
+	memset(tmp,'\0',MAX_PKT);
+	if(strcmp(tmp,r.info.data)==0)
+		isEnd=1;
+	else
+	{
+		printf("[Physical layer send]:%d\n",count);
+		count++;
+	}
+	
+	
 }
 int main(int argc,char *argv[])
 {
@@ -38,18 +44,35 @@ int main(int argc,char *argv[])
 		Packet buffer;
 		int count=1;
 		char fileName[PATHLENGTH];
+		char tmp[MAX_PKT];
+		memset(tmp,'\0',MAX_PKT);
+		FILE *fp=NULL;
+		fp=fopen(DATAFILE,"a");//以追加写的方式打开文件
+		if(fp==NULL)
+		{
+			printf("Data file open fail!\n");
+			exit(-1);
+		}
 		while(1)
 		{
 			enable_physical_write();//通知物理层写数据
-			getSharedFilePath(count,fileName);
-			network_layer_from_datalink(&buffer,fileName);
+			//getSharedFilePath(count,fileName);
+			
+			/* 从数据链路层接收数据*/
+			network_layer_from_datalink(&buffer);
+			
+			if(strcmp(tmp,buffer.data)==0)
+				break;
+		
+			/* 写入文件 */
+			fwrite(&buffer,MAX_PKT,1,fp);
 			printf("[Network layer recv]:%d\n",count);
 			count++;
-			if(count>FILECOUNT)
-				break;
 		}
-		while(1)
-			sleep(1);
+		
+		/* 处理倒数第二份数据包的尾零 */
+		
+		fclose(fp);
 		exit(0);
 			
 	}
@@ -64,13 +87,14 @@ int main(int argc,char *argv[])
 			prctl(PR_SET_NAME, new_name);
 			Frame r;
 			Packet buffer;
-			int count=1;
+			char tmp[MAX_PKT];
+			memset(tmp,'\0',MAX_PKT);
 			while(1)
 			{
 				/* 从物理层接收数据帧 */
 				from_physical_layer(&r);
 				printf("[Datalink layer recv]:%d\n",count);
-				
+								
 				/* 将数据帧中的数据包剥离出来，交给buffer */
 				int i=0;
 				for(i=0;i<MAX_PKT;i++)
@@ -78,13 +102,13 @@ int main(int argc,char *argv[])
 				
 				/* 将数据包传递给网络层 */
 				to_network_layer(&buffer);
-				printf("[Datalink layer send]:%d\n",count);
-				count++;
-				if(count>FILECOUNT)
-					break;				
+				
+				/* 检查是否是全零包 */
+				if(strcmp(tmp,r.info.data)==0)
+					break;
+				
+				printf("[Datalink layer send]:%d\n",count);			
 			}
-			while(1)
-				sleep(1);
 			exit(0);
 		}
 		else if(dl_pid>0)//父进程fork子进程--物理层
@@ -121,7 +145,12 @@ int main(int argc,char *argv[])
 				(void) signal(SIG_WR,physical_write);
 
 				while(1)
+				{
+					if(isEnd)
+						break;
 					sleep(1);
+				}
+				printf("receive end!\n");
 				close(client_sockfd);
 				exit(0);
 			}
