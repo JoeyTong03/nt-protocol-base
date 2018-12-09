@@ -238,7 +238,7 @@ Status physical_layer_to_datalink(Frame *r)
 ***********************/
 void wait_for_event(event_type* event)
 {
-	while(sig_num==0)
+	while(sig_num=0)
 		sleep(1);
 	
 	if(	sig_num==SIG_CHSUM_ERR | sig_num==SIG_FRAME_ARRIVAL |

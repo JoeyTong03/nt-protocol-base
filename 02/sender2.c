@@ -78,6 +78,7 @@ void datalink_read(int sig)
 {
 	Frame s;
 	Packet buffer;
+	event_type event;
 	char sharedFilePath[PATHLENGTH]; //共享文件名/路径network_datalink.share.xxxx
 
 	getSharedFilePath(count, sharedFilePath);
@@ -107,18 +108,8 @@ void datalink_read(int sig)
 	if (tmp_isEnd)
 		isEnd = 1;
 
-	// start_timer(s.seq);		//开启了时钟定时器
-	// wait_for_event(&event); //等到事件
-	// if(event==SIG_FRAME_ARRIVAL)
-	// {
-	// 	from_physical_layer(&s);
-	// 	if(s.ack==next_frame_to_send)
-	// 	{
-	// 		stop_timer(s.ack);
-	// 		from_network_layer(&buffer);
-	// 		inc(next_frame_to_send);
-	// 	}
-	// }
+	wait_for_event(&event); //等到事件
+
 }
 
 //网络层所做的事情

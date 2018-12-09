@@ -95,6 +95,7 @@ void CreateSigAndBind(int sig, void (*fun)(int sig, siginfo_t *info, void *myact
     }
 }
 
+
 /**********************
  * 函数名称：sig_ms
  * 功    能：运行一个时钟周期(1ms)所处理的事情

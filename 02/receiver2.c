@@ -73,9 +73,11 @@ void datalink_layer()
 	/* 修改进程名，便于根据进程名获得pid值，发送信号 */
 	char new_name[20] = "recv1_dtlink";
 	prctl(PR_SET_NAME, new_name);
-	Frame r;
+	Frame r,s;
 	Packet buffer;
 	char tmp[MAX_PKT];
+	seq_nr next_frame_seq;
+	next_frame_seq=0;
 	memset(tmp, '\0', MAX_PKT);
 	while (1)
 	{
@@ -96,6 +98,9 @@ void datalink_layer()
 			break;
 
 		printf("[Datalink layer send]:%d\n", count);
+
+		s.ack=next_frame_seq;
+		to_physical_layer(&s); //ACK
 	}
 	exit(0);
 }
