@@ -171,7 +171,7 @@ Status to_network_layer(Packet* buffer)
 * 返    回：Status--是否成功
 * 说    明：供xxx_network进程使用,xxx与上一致
 ***********************/
-Status network_layer_from_datalink(Packet* buffer,char path[])
+Status network_layer_from_datalink(Packet* buffer)
 {
 	if(mkfifo(FIFO_DL_TO_NT,0666)==-1 && errno!=EEXIST)//如果不是已存在文件而创建失败，则异常退出
 	{
@@ -193,21 +193,6 @@ Status network_layer_from_datalink(Packet* buffer,char path[])
 	}
 	close(fd);
 	unlink(FIFO_DL_TO_NT);
-	
-	/* 为了便于观察写入文件 */
-	int fd1;
-	fd1=open(path,O_CREAT | O_WRONLY,0666);
-	if(fd1<0)
-	{
-		printf("Open file %s fail!\n",path);
-		return FALSE;		
-	}
-	if((write(fd1,buffer,MAX_PKT))<0)
-	{
-		printf("Write file %s fail!\n",path);
-		return FALSE;
-	}
-	close(fd1);
 	return OK;
 }
 
@@ -295,97 +280,7 @@ void sig_catch()
 	(void) signal(SIG_DISABEL_NETWORK_LAYER,sig_func);
 	(void) signal(SIGALRM,sig_func);
 }
-/**********************
-* 函数名称：start_timer
-* 功    能：发送方发送数据后，启动帧k的计时器，如果超时就timeout
-* 参    数：帧序号
-* 返    回：
-* 说    明：SIGALARM信号，精度在ms级，不使用alarm函数
-***********************/
-void start_timer(seq_nr k)
-{
-/* 	if (timer.head == NULL)
-    {
-        TimerNodeLink tmp = newTimer();
-        tmp->seq = k;
-        tmp->clk = 1;
 
-        timer.head = tmp;
-        timer.tail = tmp;
-        timer.sumclk = clk;
-
-        return;
-    }
-
-    TimerNodeLink tmp = newTimer();
-    tmp->seq = k;
-    tmp->clk = timer.sumclk - clk;
-
-    timer.tail->nxt = tmp;
-    timer.sumclk + clk; */
-}
-
-/**********************
-* 函数名称：stop_timer
-* 功    能：发送方收到接收方发来的确认帧后，关闭帧k的计时器
-* 参    数：帧序号
-* 返    回：
-* 说    明：
-***********************/
-void stop_timer(seq_nr k)
-{
-/* 	TimerNodeLink tmp = timer.head;
-    if (tmp->seq == K)
-    {
-        if (timer.head->nxt != NULL)
-        {
-            timer.head = timer.head->nxt;
-            free(tmp);
-        }
-        else
-        {
-            timer.head=NULL;
-            timer.tail=NULL;
-            free(tmp);
-        }
-    }
-
-    int i = 0;
-    for (i = 0; tmp->nxt != NULL; tmp = tmp->nxt)
-    {
-        if (tmp->nxt->seq == k)
-        {
-            TimerNodeLink tmpn=tmp->nxt;
-            tmp->nxt=tmpn->nxt;
-            free(tmpn);
-        }
-    } */
-}
-
-
-/**********************
-* 函数名称：start_ack_timer
-* 功    能：
-* 参    数：
-* 返    回：
-* 说    明：
-***********************/
-void start_ack_timer()
-{
-	
-}
-
-/**********************
-* 函数名称：stop_ack_timer
-* 功    能：
-* 参    数：
-* 返    回：
-* 说    明：
-***********************/
-void stop_ack_timer()
-{
-	
-}
 
 /**********************
 * 函数名称：enable_network_layer
@@ -541,50 +436,31 @@ void getSharedFilePath(int k,char path[])
 	strcat(path,tmp);
 }
 
-/**********************
-* 函数名称：newTimer
-* 功    能：新建定时器链表
-* 参    数：
+ /**********************
+* 函数名称：readDataFromFile
+* 功    能：发送方从1G文件中每次读取perCount字节
+* 参    数：buf--读取的数据 perCount--此次读取的数据
 * 返    回：
-* 说    明：
+* 说    明：不足1024字节，用\0填充
 ***********************/
-/* TimerNodeLink newTimer()
+void readDataFromFile(char buf[],int perCount)
 {
-    TimerNodeLink tmptimer = TimerNodeLink malloc(sizeof(TimerNode));
-    tmptimer->clk = 0;
-    tmptimer->nxt = NULL;
-    tmptimer->seq = 0;
-    return tmptimer;
-}
- */
- 
-
-
-//用于网络层生成需要发送的1024字节的随机数据
- void generateData(char buf[])
-{
-	/*1、清零 2、若没填满1024字节，填充尾零*/
-	memset(buf,0,MAX_PKT);
-/* 	int i=0,j=0;
-	if(DATASIZE-byte_count<MAX_PKT)
-		j=DATASIZE-byte_count;
-	else
-		j=MAX_PKT;
-	for(i=0;i<j;i++)
-		buf[i]=rand()%10+'0';
-	byte_count+=j; */
-	int i=0;
-	for(i=0;i<MAX_PKT;i++)
-		buf[i]=rand()%10+'0';
-}
-
-//临时函数
-void getTestPath(int k,char path[])
-{
-	char tmp[10];
-	memset(path,0,PATHLENGTH);
-	memset(tmp,0,10);
-	strcpy(path,"1551445.");
-	sprintf(tmp,"%04d",k);
-	strcat(path,tmp);
+	int fd;
+	fd=open(DATAFILE,O_RDONLY,0666);
+	if(fd==-1)
+	{
+		printf("Data file open fail!\n");
+		return;
+	}
+	if(read(fd,buf,perCount)<0)
+	{
+		printf("Data file read fail!\n");
+		return;
+	}
+	if(perCount<MAX_PKT)
+	{
+		int i=perCount;
+		for(;i<MAX_PKT;i++)
+			buf[i]='\0';//不足1024字节，用\0填充
+	}
 }

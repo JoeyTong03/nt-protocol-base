@@ -21,10 +21,10 @@
 #define ERROR -1
 #define OK 1
 
-#define DATASIZE 1024*1024 //共发送1G字节的数据
+#define	DATAFILE "data.dat" //大小为1G的数据文件
+#define TOTALDATASIZE 1024*1024 //共发送1G字节的数据,暂时先按1MB来
 #define PATHLENGTH 40	//共享文件名长度
 #define FRAMESIZE 1024+12	//数据帧的长度
-#define FILECOUNT 10 //暂时只发5份，方便观察
 
 /*管道文件名宏定义*/
 #define FIFO_DL_TO_PS "fifo_dl_to_ps.file" //datalink to physical
@@ -67,26 +67,8 @@ typedef struct
 	Packet info;
 }Frame;
 
-/* typedef struct TimerNode
-{
-    unsigned int clk;   //时间
-    seq_nr seq;         //序号
-    TimerNode* nxt;     //指针
-}TimerNode,*TimerNodeLink;
-
-typedef struct
-{
-    TimerNodeLink head=NULL; //头指针
-    TimerNodeLink tail=NULL; //尾指针
-    unsigned int sumclk;
-}Timer; */
-
-
 /*全局变量*/
 int sig_num;
-
-// Timer timer;//定时器
-
 
 //数据链路层从网络层（xxx_network进程）获取数据包，存入buffer中
 Status from_network_layer(Packet* buffer,char sharedFilePath[]);
@@ -107,15 +89,12 @@ Status from_physical_layer(Frame* r);
 //数据链路层将数据包buffer传递到网络层(xxx_network进程
 Status to_network_layer(Packet* buffer);
 
-//网络层从数据链路层获取数据包并写入path对应的文件中
-Status network_layer_from_datalink(Packet* buffer,char path[]);
+//网络层从数据链路层获取数据包并写入文件data.dat
+Status network_layer_from_datalink(Packet* buffer);
 
 //等待事件的发生，并用event记录发生的事件类型
 void wait_for_event(event_type* event);
 
-
-//创建一个定时器
-//TimerNodeLink newTimer();
 
 //发送方发送数据后，启动帧k的计时器，如果超时就timeout
 //SIGALARM信号，精度在ms级，不使用alarm函数
@@ -138,9 +117,6 @@ void getSharedFilePath(int k,char path[]);
 //为文件描述符fd对应的文件上锁
 Status lock_set(int fd, int type) ;
 
-//生成1024字节随机数
-void generateData(char buf[]);
-
 //临时函数
 void getTestPath(int k,char path[]);
 
@@ -152,3 +128,6 @@ void enable_datalink_read();
 
 //通知物理层写数据
 void enable_physical_write();
+
+//发送方从1G文件中每次读取perCount字节
+void readDataFromFile(char buf[],int perCount);
